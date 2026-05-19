@@ -1,0 +1,10 @@
+# Dependency directories
+node_modules/
+
+# IDEs and editors
+.vscode/
+.idea/
+
+# Operating System files
+.DS_Store
+Thumbs.db
