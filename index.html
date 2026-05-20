@@ -12,7 +12,7 @@
   <!-- Tabler Icons CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <!-- Application CSS -->
-  <link rel="stylesheet" href="index.css?v=26">
+  <link rel="stylesheet" href="index.css?v=31">
   <!-- Reset stale dark-mode localStorage so light is the true default -->
   <script>
     (function() {
@@ -261,6 +261,34 @@
   </div>
 
   <div id="global-tooltip" class="custom-tooltip"></div>
-  <script src="app.js?v=26"></script>
+
+  <!-- ACTIVITY DRAWER OVERLAY -->
+  <div id="activity-drawer-overlay" class="activity-drawer-overlay" onclick="closeActivityDrawer()"></div>
+
+  <!-- ACTIVITY DRAWER PANEL -->
+  <div id="activity-drawer" class="activity-drawer">
+    <div class="activity-drawer-header">
+      <span class="activity-drawer-title">activity</span>
+      <button class="activity-drawer-close" onclick="closeActivityDrawer()">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <div class="activity-drawer-tabs">
+      <button class="activity-tab active" id="tab-queue" onclick="switchActivityTab('queue')">
+        <i class="ti ti-checklist"></i> review queue
+      </button>
+      <button class="activity-tab" id="tab-agents" onclick="switchActivityTab('agents')">
+        <i class="ti ti-robot"></i> softworkers
+      </button>
+      <button class="activity-tab" id="tab-feed" onclick="switchActivityTab('feed')">
+        <i class="ti ti-history"></i> activity
+      </button>
+    </div>
+    <div class="activity-drawer-body" id="activity-drawer-body">
+      <!-- populated by renderActivityDrawerContent() -->
+    </div>
+  </div>
+
+  <script src="app.js?v=31"></script>
 </body>
 </html>

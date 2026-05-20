@@ -692,7 +692,7 @@ function renderView() {
     document.querySelector('.topbar-left').innerHTML = `
       <a href="#/home" class="topbar-back-link" style="display:flex;align-items:center;gap:8px;color:var(--color-text-primary);text-decoration:none;font-weight:500;font-size:14px;padding: 4px 8px; border-radius: 6px; transition: background 0.15s;" onmouseover="this.style.background='var(--color-bg-secondary)'" onmouseout="this.style.background='transparent'">
         <i class="ti ti-arrow-left"></i>
-        <span style="font-weight:600; font-size:15px;">Customize</span>
+        <span style="font-weight:500; font-size:15px;">Customize</span>
       </a>
     `;
     document.querySelector('.topbar-right').style.display = 'none';
@@ -701,14 +701,69 @@ function renderView() {
     document.querySelector('.topbar-left').innerHTML = `
       <a href="#/home" class="topbar-back-link" style="display:flex;align-items:center;gap:8px;color:var(--color-text-primary);text-decoration:none;font-weight:500;font-size:14px;padding: 4px 8px; border-radius: 6px; transition: background 0.15s;" onmouseover="this.style.background='var(--color-bg-secondary)'" onmouseout="this.style.background='transparent'">
         <i class="ti ti-arrow-left"></i>
-        <span style="font-weight:600; font-size:15px;">Reviews & approvals</span>
+        <span style="font-weight:500; font-size:15px;">Reviews & approvals</span>
       </a>
+    `;
+    document.querySelector('.topbar-right').style.display = 'flex';
+  } else if (state.activeView === 'workstream') {
+    // Custom topbar for workstream view
+    const wst = state.workstreams.find(w => w.id === state.activeWorkstreamId) || state.workstreams[0];
+    const wsName = wst ? wst.name : 'vendor outreach logs';
+    document.querySelector('.topbar-left').innerHTML = `
+      <div class="ws-breadcrumb" style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ws-text-tertiary);">
+        <span>Acme platform</span>
+        <span style="opacity:0.5;">/</span>
+        <span>Workstreams</span>
+        <span style="opacity:0.5;">/</span>
+        <span style="color:var(--ws-text-primary); font-weight:500;">${wsName}</span>
+      </div>
+    `;
+    
+    // Custom right topbar
+    document.querySelector('.topbar-right').innerHTML = `
+      <button class="topbar-btn" data-tooltip="Search in workstream">
+        <i class="ti ti-search"></i>
+      </button>
+      <button id="theme-toggle" class="topbar-btn" onclick="toggleTheme()" data-tooltip="Toggle theme">
+        <i class="ti ti-sun" id="theme-icon-light" style="display: ${state.theme === 'dark' ? 'block' : 'none'};"></i>
+        <i class="ti ti-moon" id="theme-icon-dark" style="display: ${state.theme === 'dark' ? 'none' : 'block'};"></i>
+      </button>
+      <button class="topbar-btn relative" data-tooltip="Notifications">
+        <i class="ti ti-bell"></i>
+        <span class="notification-indicator"></span>
+      </button>
+      <button class="ws-topbar-text-btn secondary-outlined" onclick="addRedirectChip('${wst ? wst.id : ''}')" data-tooltip="Redirect">
+        <i class="ti ti-git-branch"></i>
+        <span>Redirect</span>
+      </button>
+      <button class="ws-topbar-text-btn primary-filled" onclick="simulateWorkstreamRun('${wst ? wst.id : ''}')" data-tooltip="Run manual check">
+        <i class="ti ti-player-play"></i>
+        <span>Run manual check</span>
+      </button>
     `;
     document.querySelector('.topbar-right').style.display = 'flex';
   } else {
     // Standard topbar
     document.querySelector('.topbar-left').innerHTML = `
       <span id="current-view-title" class="view-title">${title}</span>
+    `;
+    
+    // Restore standard right content
+    document.querySelector('.topbar-right').innerHTML = `
+      <button id="theme-toggle" class="topbar-btn" onclick="toggleTheme()" data-tooltip="switch theme">
+        <i class="ti ti-sun" id="theme-icon-light" style="display: ${state.theme === 'dark' ? 'block' : 'none'};"></i>
+        <i class="ti ti-moon" id="theme-icon-dark" style="display: ${state.theme === 'dark' ? 'none' : 'block'};"></i>
+      </button>
+      <button class="topbar-btn" id="btn-global-search" data-tooltip="search" onclick="toggleGlobalSearch(event)">
+        <i class="ti ti-search"></i>
+      </button>
+      <button class="topbar-btn relative" data-tooltip="notifications">
+        <i class="ti ti-bell"></i>
+        <span class="notification-indicator"></span>
+      </button>
+      <button class="topbar-btn" id="btn-activity-drawer" data-tooltip="activity & status" onclick="toggleActivityDrawer()">
+        <i class="ti ti-activity"></i>
+      </button>
     `;
     document.querySelector('.topbar-right').style.display = 'flex';
   }
@@ -718,6 +773,116 @@ function renderView() {
     DOM.currentViewTitle.textContent = title;
   }
   updateBadges();
+}
+
+// --- ACTIVITY DRAWER ---
+let _activityDrawerTab = 'queue';
+
+function toggleActivityDrawer() {
+  const drawer = document.getElementById('activity-drawer');
+  const overlay = document.getElementById('activity-drawer-overlay');
+  const btn = document.getElementById('btn-activity-drawer');
+  if (!drawer) return;
+  const isOpen = drawer.classList.contains('open');
+  if (isOpen) {
+    closeActivityDrawer();
+  } else {
+    drawer.classList.add('open');
+    overlay && overlay.classList.add('open');
+    btn && btn.classList.add('drawer-active');
+    renderActivityDrawerContent(_activityDrawerTab);
+  }
+}
+
+function closeActivityDrawer() {
+  const drawer = document.getElementById('activity-drawer');
+  const overlay = document.getElementById('activity-drawer-overlay');
+  const btn = document.getElementById('btn-activity-drawer');
+  drawer && drawer.classList.remove('open');
+  overlay && overlay.classList.remove('open');
+  btn && btn.classList.remove('drawer-active');
+}
+
+function switchActivityTab(tab) {
+  _activityDrawerTab = tab;
+  // Update tab active states
+  ['queue', 'agents', 'feed'].forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.classList.toggle('active', t === tab);
+  });
+  renderActivityDrawerContent(tab);
+}
+
+function renderActivityDrawerContent(tab) {
+  const body = document.getElementById('activity-drawer-body');
+  if (!body) return;
+  const activeWorkspace = state.workspaces.find(ws => ws.id === state.activeWorkspaceId) || state.workspaces[0];
+
+  if (tab === 'queue') {
+    const pendingReviews = state.reviews.filter(r => r.workspaceId === activeWorkspace.id && r.status === 'pending');
+    body.innerHTML = `
+      <div class="drawer-section-label">
+        my review queue
+        ${pendingReviews.length > 0 ? `<span class="badge-count">${pendingReviews.length}</span>` : ''}
+      </div>
+      ${pendingReviews.length === 0 ? `
+        <div style="font-size:12px; color:var(--color-text-tertiary); padding:16px 0;">All caught up! No reviews pending.</div>
+      ` : pendingReviews.map(rev => `
+        <div class="drawer-review-card" onclick="closeActivityDrawer(); window.location.hash='#/workspace/reviews';">
+          <div class="drawer-review-card-left">
+            <div class="drawer-review-title">${rev.title}</div>
+            <div class="drawer-review-meta">risk: ${rev.risk} · requested by ${rev.requestedBy || 'system'}</div>
+          </div>
+          <i class="ti ti-chevron-right drawer-review-arrow"></i>
+        </div>
+      `).join('')}
+    `;
+  } else if (tab === 'agents') {
+    const softworkerStatuses = state.agents.map(ag => {
+      let statusClass = 'pulse-gray';
+      let activity = 'Idle';
+      if (ag.status === 'active') {
+        statusClass = 'pulse-green';
+        activity = ag.category === 'finance_agent' ? 'Analyzing ledgers' : 'Monitoring feeds';
+      } else if (ag.status === 'paused') {
+        statusClass = 'pulse-amber';
+        activity = 'Waiting approval';
+      } else if (ag.status === 'blocked') {
+        statusClass = 'pulse-red';
+        activity = 'Failed intake check';
+      }
+      return { name: ag.name, statusClass, activity };
+    });
+    body.innerHTML = `
+      <div class="drawer-section-label">softworkers in action</div>
+      ${softworkerStatuses.map(sw => `
+        <div class="drawer-agent-row">
+          <div class="drawer-agent-avatar">${sw.name.charAt(0).toUpperCase()}</div>
+          <div class="drawer-agent-info">
+            <div class="drawer-agent-name">${sw.name}</div>
+            <div class="drawer-agent-activity">${sw.activity}</div>
+          </div>
+          <span class="status-pulse-dot ${sw.statusClass}"></span>
+        </div>
+      `).join('')}
+    `;
+  } else if (tab === 'feed') {
+    const feed = state.activityFeed.filter(a => a.workspaceId === activeWorkspace.id);
+    body.innerHTML = `
+      <div class="drawer-section-label">workspace activity</div>
+      ${feed.length === 0 ? `
+        <div style="font-size:12px; color:var(--color-text-tertiary); padding:16px 0;">No recent activity.</div>
+      ` : feed.map(act => `
+        <div class="drawer-feed-row">
+          <i class="ti ti-history drawer-feed-icon"></i>
+          <div class="drawer-feed-text">
+            ${act.content}
+            <span class="drawer-feed-time">${act.time}</span>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }
 }
 
 // --- THEME SYNC ---
@@ -1351,7 +1516,40 @@ function submitPrompt(promptId) {
     return;
   }
   
-  // Handle different views
+  if (promptId === 'workstream-composer') {
+    input.innerText = '';
+    const sendBtn = document.getElementById(`${promptId}-btn-send`);
+    if (sendBtn) sendBtn.setAttribute('disabled', 'true');
+    
+    const wst = state.workstreams.find(w => w.id === state.activeWorkstreamId);
+    if (!wst) return;
+    
+    wst.messages.push({
+      id: 'msg_h_' + Date.now(),
+      sender: 'Alex Rivers',
+      senderType: 'human',
+      role: 'owner',
+      avatarColor: '#854F0B',
+      time: 'just now',
+      content: text
+    });
+    
+    state.activeChips = [];
+    renderView();
+    
+    setTimeout(() => {
+      wst.messages.push({
+        id: 'msg_a_ack_' + Date.now(),
+        sender: 'Finance reviewer',
+        senderType: 'agent',
+        time: 'just now',
+        content: `Instruction received. Directing my execution modules to process your command: "${text}".`
+      });
+      renderView();
+    }, 1000);
+    return;
+  }
+  
   if (state.activeView === 'create_agent') {
     // Creating agent flow submission
     const agentName = text.split(' ')[0] || 'custom analyst';
@@ -2023,299 +2221,111 @@ function removeProjectAction(projectId) {
 
 // --- SCREENS RENDERING LOGIC ---
 
-// 1. HOME SCREEN
 function renderHomeScreen() {
   const activeWorkspace = state.workspaces.find(ws => ws.id === state.activeWorkspaceId) || state.workspaces[0];
   const wsWorkstreams = state.workstreams.filter(wst => wst.workspaceId === activeWorkspace.id);
   const activeRunsCount = wsWorkstreams.reduce((acc, curr) => acc + curr.activeRuns, 0);
-  
-  // Needs Attention Items (filtered to pending reviews for this workspace)
-  const pendingReviews = state.reviews.filter(r => r.workspaceId === activeWorkspace.id && r.status === 'pending');
-  
-  // Right Rail: Softworker Statuses
-  const softworkerStatuses = state.agents.map(ag => {
-    let statusClass = 'pulse-gray';
-    let activity = 'Idle';
-    if (ag.status === 'active') {
-      statusClass = 'pulse-green';
-      activity = ag.category === 'finance_agent' ? 'analyzing ledgers' : 'monitoring feeds';
-    } else if (ag.status === 'paused') {
-      statusClass = 'pulse-amber';
-      activity = 'waiting approval';
-    } else if (ag.status === 'blocked') {
-      statusClass = 'pulse-red';
-      activity = 'failed intake check';
-    }
-    return {
-      name: ag.name,
-      statusClass: statusClass,
-      activity: activity
-    };
-  });
+
+  // Get hour for greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'good morning' : hour < 17 ? 'good afternoon' : 'good evening';
 
   DOM.contentArea.innerHTML = `
-    <div class="workspace-home-container">
-      
-      <!-- MAIN WORKSPACE CONTENT COLUMN (Column 2) -->
-      <div class="workspace-main-content">
-        
-        <!-- LEFT-ALIGNED HEADER & GREETING -->
-        <div class="workspace-greeting-row">
-          <div class="workspace-greeting-left">
-            <h1 class="workspace-greeting-title">good morning, alex</h1>
-            <div class="workspace-greeting-sub">governing <strong>${activeWorkspace.name}</strong> workspace</div>
+    <div class="centered-container">
+      <div class="home-greeting-box">
+        <h1 class="home-greeting-title">${greeting}, alex</h1>
+        <div class="home-greeting-sub">governing <strong>${activeWorkspace.name}</strong> workspace</div>
+        <div class="home-chips-row">
+          <div class="workspace-chip-badge">
+            <span class="status-pulse-dot pulse-green" style="width:6px; height:6px;"></span>
+            <span>${activeRunsCount} active run${activeRunsCount !== 1 ? 's' : ''}</span>
           </div>
-          <div style="display:flex; gap:8px;">
-            <div class="workspace-chip-badge">
-              <span class="status-pulse-dot pulse-green" style="width:6px; height:6px;"></span>
-              <span>${activeRunsCount} active runs</span>
-            </div>
-            <div class="workspace-chip-badge">
-              <i class="ti ti-shield"></i>
-              <span>${activeWorkspace.role} node</span>
-            </div>
+          <div class="workspace-chip-badge">
+            <i class="ti ti-shield-check"></i>
+            <span>${activeWorkspace.role} node</span>
           </div>
         </div>
-
-        <!-- CENTRAL INTAKE COMPOSER -->
-        <div style="margin-bottom: 24px;">
-          ${getPromptBoxHTML('describe a goal to delegate... (e.g. @create workstream)')}
-          
-          <!-- Natural Creation Inline Form Overlay -->
-          ${state.activeCreationForm === 'workstream' ? `
-            <div class="creation-form-box">
-              <div class="creation-form-title">configure new workstream workflow</div>
-              <div class="creation-form-grid">
-                <div class="creation-form-row">
-                  <label>workstream name</label>
-                  <input type="text" id="form-workstream-name" placeholder="e.g. daily expense reconciliation" value="daily expense reconciliation">
-                </div>
-                <div class="creation-form-row">
-                  <label>workspace scope</label>
-                  <select id="form-workstream-workspace">
-                    ${state.workspaces.map(ws => `<option value="${ws.id}" ${ws.id === state.activeWorkspaceId ? 'selected' : ''}>${ws.name}</option>`).join('')}
-                  </select>
-                </div>
-                <div class="creation-form-row">
-                  <label>execution frequency</label>
-                  <select id="form-workstream-frequency">
-                    <option value="daily">daily at 9:00 AM</option>
-                    <option value="weekly">weekly on mondays</option>
-                    <option value="continuous">continuous (event driven)</option>
-                    <option value="manual" selected>manual trigger</option>
-                  </select>
-                </div>
-                <div class="creation-form-row">
-                  <label>primary softworker</label>
-                  <select id="form-workstream-agent">
-                    ${state.agents.map(ag => `<option value="${ag.id}">${ag.name}</option>`).join('')}
-                  </select>
-                </div>
-                <div class="creation-form-row full-width">
-                  <label>operational goal & instructions</label>
-                  <textarea id="form-workstream-instructions" rows="2" style="background:var(--color-bg-secondary); border:0.5px solid var(--color-border-secondary); color:var(--color-text-primary); border-radius:6px; padding:8px; font-size:12.5px; font-family:inherit; outline:none;" placeholder="describe the automated end-to-end task...">audit all newly uploaded receipts and match against quickbooks ledgers.</textarea>
-                </div>
-              </div>
-              <div class="creation-form-actions">
-                <button class="btn btn-outline btn-sm" onclick="cancelCreationForm()">cancel</button>
-                <button class="btn btn-primary btn-sm" onclick="submitWorkstreamForm()">create workstream</button>
-              </div>
-            </div>
-          ` : ''}
-        </div>
-
-        <!-- CENTRAL TRIAGE & GLOBAL INBOX (Inbox Triage list) -->
-        <div class="global-channel-wrapper">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span class="right-rail-title" style="letter-spacing:0.04em;">global inbox / triage</span>
-            <a href="#/workspace/global" style="font-size:11.5px; color:var(--color-text-secondary); text-decoration:none;">open channel</a>
-          </div>
-          
-          <div class="global-channel-list">
-            ${state.globalMessages.filter(msg => msg.workspaceId === activeWorkspace.id).map(msg => {
-              const isExpanded = state.activeTriageRowId === msg.id;
-              const hasSuggestedRoute = msg.intent && msg.intent.route;
-              
-              return `
-                <div class="global-channel-row-wrapper">
-                  <div class="global-channel-row" onclick="toggleTriageRow('${msg.id}')">
-                    <div class="global-channel-row-left">
-                      <i class="ti ${msg.status === 'triage' ? 'ti-alert-circle text-warning' : 'ti-circle-check text-success'}"></i>
-                      <span class="global-channel-sender">${msg.sender}</span>
-                      <span class="global-channel-preview">${msg.content}</span>
-                    </div>
-                    <span class="triage-pill ${msg.status === 'triage' ? 'pill-amber' : 'pill-green'}">${msg.status}</span>
-                  </div>
-                  
-                  ${isExpanded ? `
-                    <div class="intent-card-container">
-                      <div class="intent-card-box">
-                        <div class="intent-card-header">suggested run route & intent params</div>
-                        <div class="intent-card-rows">
-                          <div class="intent-card-param-row">
-                            <span class="intent-card-label">parsed intent:</span>
-                            <span class="intent-card-value">${msg.intent ? msg.intent.parsed : 'unknown'}</span>
-                          </div>
-                          ${hasSuggestedRoute ? `
-                            <div class="intent-card-param-row">
-                              <span class="intent-card-label">action route:</span>
-                              <span class="intent-card-value" style="color:var(--color-accent-blue);"><i class="ti ti-route"></i> ${msg.intent.route}</span>
-                            </div>
-                          ` : ''}
-                          <div class="intent-card-param-row">
-                            <span class="intent-card-label">confidence:</span>
-                            <span class="intent-card-value">${msg.intent ? msg.intent.confidence : '0%'}</span>
-                          </div>
-                        </div>
-                        <div class="intent-card-actions">
-                          <button class="btn btn-primary btn-sm" onclick="approveTriageRow('${msg.id}')">Approve & Run</button>
-                          <button class="btn btn-outline btn-sm" onclick="rejectTriageRow('${msg.id}')">Dismiss</button>
-                          <button class="btn btn-outline btn-sm" onclick="escalateTriageRow('${msg.id}')"><i class="ti ti-users"></i> Escalate</button>
-                        </div>
-                      </div>
-                    </div>
-                  ` : ''}
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-
-        <!-- WORKSTREAM PULSE ACTIVITY GRID -->
-        <div class="needs-attention-wrapper" style="margin-bottom: 24px;">
-          <span class="right-rail-title" style="letter-spacing:0.04em;">workstream pulse</span>
-          <div class="workstream-pulse-grid">
-            ${wsWorkstreams.length === 0 ? `
-              <div class="text-secondary" style="grid-column: span 2; padding: 20px; border: 0.5px dashed var(--color-border-secondary); border-radius: 8px;">No workstreams configured in this workspace.</div>
-            ` : wsWorkstreams.map(wst => {
-              let statusClass = 'status-idle';
-              if (wst.status === 'running') statusClass = 'status-active';
-              if (wst.status === 'paused') statusClass = 'status-paused';
-              if (wst.status === 'blocked') statusClass = 'status-blocked';
-              
-              return `
-                <div class="workstream-pulse-card" onclick="window.location.hash='#/workspace/${activeWorkspace.id}/workstream/${wst.id}'">
-                  <div class="workstream-pulse-header">
-                    <div class="workstream-pulse-title-group">
-                      <span class="workstream-pulse-dot ${statusClass}" style="width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:4px;"></span>
-                      <span class="workstream-pulse-title">${wst.name}</span>
-                    </div>
-                    <span style="font-size:11px; color:var(--color-text-secondary);">${wst.lastActive}</span>
-                  </div>
-                  
-                  <div class="workstream-spark-feed">
-                    <div class="workstream-pulse-row">
-                      <span>total runs this month</span>
-                      <span>${wst.runsCount} runs</span>
-                    </div>
-                    <div class="workstream-pulse-row">
-                      <span>active processes</span>
-                      <span>${wst.activeRuns} active</span>
-                    </div>
-                    <div class="workstream-pulse-row">
-                      <span>pending review approvals</span>
-                      <span style="color:${wst.pendingReviews > 0 ? 'var(--avatar-amber-text)' : 'inherit'}; font-weight:${wst.pendingReviews > 0 ? '600' : 'normal'}">${wst.pendingReviews} pending</span>
-                    </div>
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-
-        <!-- QUICK START -->
-        <div class="quickstart-section" style="margin-top: 0; padding-top: 0;">
-          <span class="right-rail-title" style="letter-spacing:0.04em;">quick start shortcuts</span>
-          <div class="quickstart-grid" style="margin-top: 8px;">
-            <div class="quickstart-card" onclick="window.location.hash = '#/create-agent'">
-              <div class="quickstart-icon user-color-purple">
-                <i class="ti ti-users"></i>
-              </div>
-              <div class="quickstart-card-details">
-                <div class="quickstart-card-title">create softworker</div>
-                <div class="quickstart-card-desc">initialize a specialized agent to manage workspace tasks</div>
-              </div>
-            </div>
-            
-            <div class="quickstart-card" onclick="window.location.hash = '#/create-skill'">
-              <div class="quickstart-icon user-color-teal">
-                <i class="ti ti-file-description"></i>
-              </div>
-              <div class="quickstart-card-details">
-                <div class="quickstart-card-title">define workspace capability</div>
-                <div class="quickstart-card-desc">build integrations that softworkers can run securely</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
       </div>
 
-      <!-- STICKY RIGHT RAIL (Column 3) -->
-      <div class="workspace-right-rail">
-        
-        <!-- SECTION 1: MY REVIEW QUEUE -->
-        <div class="right-rail-section">
-          <div class="right-rail-section-header">
-            <span class="right-rail-title">my review queue</span>
-            <span class="badge badge-amber" style="font-size:10px;">${pendingReviews.length}</span>
+      ${getPromptBoxHTML('describe a goal to delegate... (e.g. @create workstream)')}
+
+      <!-- Natural Creation Inline Form Overlay -->
+      ${state.activeCreationForm === 'workstream' ? `
+        <div class="creation-form-box">
+          <div class="creation-form-title">configure new workstream workflow</div>
+          <div class="creation-form-grid">
+            <div class="creation-form-row">
+              <label>workstream name</label>
+              <input type="text" id="form-workstream-name" placeholder="e.g. daily expense reconciliation" value="daily expense reconciliation">
+            </div>
+            <div class="creation-form-row">
+              <label>workspace scope</label>
+              <select id="form-workstream-workspace">
+                ${state.workspaces.map(ws => `<option value="${ws.id}" ${ws.id === state.activeWorkspaceId ? 'selected' : ''}>${ws.name}</option>`).join('')}
+              </select>
+            </div>
+            <div class="creation-form-row">
+              <label>execution frequency</label>
+              <select id="form-workstream-frequency">
+                <option value="daily">daily at 9:00 AM</option>
+                <option value="weekly">weekly on mondays</option>
+                <option value="continuous">continuous (event driven)</option>
+                <option value="manual" selected>manual trigger</option>
+              </select>
+            </div>
+            <div class="creation-form-row">
+              <label>primary softworker</label>
+              <select id="form-workstream-agent">
+                ${state.agents.map(ag => `<option value="${ag.id}">${ag.name}</option>`).join('')}
+              </select>
+            </div>
+            <div class="creation-form-row full-width">
+              <label>operational goal & instructions</label>
+              <textarea id="form-workstream-instructions" rows="2" style="background:var(--color-bg-secondary); border:0.5px solid var(--color-border-secondary); color:var(--color-text-primary); border-radius:6px; padding:8px; font-size:12.5px; font-family:inherit; outline:none;" placeholder="describe the automated end-to-end task...">audit all newly uploaded receipts and match against quickbooks ledgers.</textarea>
+            </div>
           </div>
-          <div class="right-rail-list">
-            ${pendingReviews.length === 0 ? `
-              <div class="text-secondary" style="font-size:12px; padding:10px 4px;">All caught up! No reviews pending.</div>
-            ` : pendingReviews.slice(0, 3).map(rev => `
-              <div class="right-rail-compact-row" onclick="window.location.hash='#/workspace/reviews'">
-                <div class="right-rail-compact-left">
-                  <span class="right-rail-compact-title">${rev.title}</span>
-                  <span class="right-rail-compact-meta">risk: ${rev.risk} · requested by ${rev.requestedBy}</span>
-                </div>
-                <i class="ti ti-chevron-right text-secondary" style="font-size:12px;"></i>
-              </div>
-            `).join('')}
+          <div class="creation-form-actions">
+            <button class="btn btn-outline btn-sm" onclick="cancelCreationForm()">cancel</button>
+            <button class="btn btn-primary btn-sm" onclick="submitWorkstreamForm()">create workstream</button>
           </div>
         </div>
+      ` : ''}
 
-        <!-- SECTION 2: SOFTWORKERS IN ACTION -->
-        <div class="right-rail-section">
-          <div class="right-rail-section-header">
-            <span class="right-rail-title">softworkers in action</span>
+      <div class="template-section">
+        <div class="quickstart-label">quick actions</div>
+        <div class="template-grid">
+          <div class="template-card" onclick="window.location.hash='#/create-agent'">
+            <span class="template-color-indicator" style="background-color: var(--avatar-purple-text);"></span>
+            <div class="template-content">
+              <div class="quickstart-card-title">create softworker</div>
+              <div class="quickstart-card-desc">initialize a specialized agent to manage workspace tasks</div>
+            </div>
           </div>
-          <div class="right-rail-list" style="gap:10px;">
-            ${softworkerStatuses.map(sw => `
-              <div class="softworker-status-row">
-                <div class="softworker-status-left">
-                  <div class="agent-avatar" style="width:24px; height:24px; font-size:11px; flex-shrink:0;">
-                    ${sw.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div class="softworker-status-details">
-                    <span class="softworker-status-name">${sw.name}</span>
-                    <span class="softworker-status-desc">${sw.activity}</span>
-                  </div>
-                </div>
-                <span class="status-pulse-dot ${sw.statusClass}"></span>
-              </div>
-            `).join('')}
+
+          <div class="template-card" onclick="window.location.hash='#/create-skill'">
+            <span class="template-color-indicator" style="background-color: var(--avatar-teal-text);"></span>
+            <div class="template-content">
+              <div class="quickstart-card-title">define workspace capability</div>
+              <div class="quickstart-card-desc">build integrations that softworkers can run securely</div>
+            </div>
+          </div>
+
+          <div class="template-card" onclick="window.location.hash='#/workspace/global'">
+            <span class="template-color-indicator" style="background-color: var(--avatar-amber-text);"></span>
+            <div class="template-content">
+              <div class="quickstart-card-title">open global triage</div>
+              <div class="quickstart-card-desc">review and route incoming goals to workstreams</div>
+            </div>
+          </div>
+
+          <div class="template-card" onclick="window.location.hash='#/workspace/reviews'">
+            <span class="template-color-indicator" style="background-color: var(--avatar-coral-text);"></span>
+            <div class="template-content">
+              <div class="quickstart-card-title">review approvals</div>
+              <div class="quickstart-card-desc">approve or reject pending softworker actions</div>
+            </div>
           </div>
         </div>
-
-        <!-- SECTION 3: RECENT AUDIT ACTIVITY -->
-        <div class="right-rail-section">
-          <div class="right-rail-section-header">
-            <span class="right-rail-title">workspace activity</span>
-          </div>
-          <div class="right-rail-list" style="gap:8px;">
-            ${state.activityFeed.filter(act => act.workspaceId === activeWorkspace.id).slice(0, 5).map(act => `
-              <div class="activity-feed-row">
-                <i class="ti ti-history"></i>
-                <div class="activity-feed-text">
-                  <span>${act.content}</span><br>
-                  <span class="activity-feed-time">${act.time}</span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
       </div>
 
     </div>
@@ -4860,154 +4870,909 @@ function renderWorkstreamScreen() {
     return;
   }
   
-  state.workstreamTab = state.workstreamTab || 'messages';
+  // Set up theme padding and overflow protection for this scroll-fixed layout view
+  if (DOM.contentArea) {
+    DOM.contentArea.style.padding = '0';
+    DOM.contentArea.style.overflow = 'hidden';
+  }
+  
+  state.workstreamTab = state.workstreamTab || 'Channel';
   const assignedAgent = state.agents.find(ag => ag.id === wst.agentId) || state.agents[0];
   
-  // Set up mock workstream messages if none exist
+  // Initialize mock members, skills, runs and stats if none exist
+  if (!wst.members) {
+    wst.members = [
+      { name: "Alex Rivers", initials: "AR", color: "#854F0B", role: "owner", type: "human", status: "online" },
+      { name: "Priya R.", initials: "PR", color: "#534AB7", role: "operator", type: "human", status: "away" },
+      { name: "James K.", initials: "JK", color: "#0F6E56", role: "reviewer", type: "human", status: "offline" },
+      { name: "Finance reviewer", initials: "Fr", color: "#185FA5", role: "softworker · executor", type: "agent", status: wst.status === 'running' ? 'running' : 'online' }
+    ];
+  }
+  if (!wst.skills) {
+    wst.skills = ["Vendor Log Audit", "Anomaly Detection"];
+  }
+  if (!wst.stats) {
+    wst.stats = { runs: 47, anomalies: 0, approvals: 3, rate: '100%' };
+  }
+  
+  // Initialize dynamic workstream messages if none exist
   if (!wst.messages) {
     wst.messages = [
-      { sender: 'system', content: `workstream "${wst.name}" initialized. Assigned to ${assignedAgent.name}`, time: '2 days ago' },
-      { sender: assignedAgent.name, content: `analyzing data logs. monitoring incoming events...`, time: '1 day ago' },
-      { sender: 'system', content: `scheduled daily run Completed successfully. 0 anomalies detected.`, time: '12 hours ago' }
+      {
+        id: 'msg_wst_init',
+        senderType: 'system',
+        content: `workstream initialized · assigned to Finance reviewer · 2 days ago`
+      },
+      {
+        id: 'msg_wst_human_1',
+        sender: 'Alex Rivers',
+        senderType: 'human',
+        role: 'owner',
+        avatarColor: '#854F0B',
+        time: '2 days ago',
+        content: 'Let\'s run a complete audit of the vendor billing logs for Q1. Look for anomalies, policy violations, or duplicates immediately.'
+      },
+      {
+        id: 'msg_wst_agent_1',
+        sender: 'Finance reviewer',
+        senderType: 'agent',
+        time: '2 days ago',
+        content: 'Acknowledging the audit directive. I have generated the execution plan below to analyze the Q1 transaction records.',
+        hasPlan: true,
+        plan: {
+          steps: [
+            { id: 1, label: 'parse vendor invoice records from logs', status: 'done' },
+            { id: 2, label: 'cross-check vendor IDs against authorization ledger', status: 'done' },
+            { id: 3, label: 'detect anomalous charge quantities & pricing exceptions', status: 'done' },
+            { id: 4, label: 'compile anomaly reports and post output', status: 'done' }
+          ]
+        }
+      },
+      {
+        id: 'msg_wst_agent_2',
+        sender: 'Finance reviewer',
+        senderType: 'agent',
+        time: '2 days ago',
+        content: 'Q1 audit complete. 847 entries reconciled. 0 anomalies detected. 2 unapproved vendor profiles flagged for review.',
+        hasOutputCard: true,
+        outputCard: {
+          title: 'Vendor log audit report - Q1 close.pdf',
+          summary: '847 entries reviewed · 0 anomalies · 2 vendors flagged'
+        }
+      },
+      {
+        id: 'msg_wst_sys_scheduled',
+        senderType: 'system',
+        content: `scheduled daily run · 12 hours ago`
+      },
+      {
+        id: 'msg_wst_agent_3',
+        sender: 'Finance reviewer',
+        senderType: 'agent',
+        time: '12 hours ago',
+        content: 'Launching automated daily execution check. Compiling active transaction tables...',
+        hasPlan: true,
+        plan: {
+          steps: [
+            { id: 1, label: 'pull active daily transaction logs', status: 'done' },
+            { id: 2, label: 'cross-reference entries with bank ledger', status: 'active' },
+            { id: 3, label: 'validate merchant credentials', status: 'pending' }
+          ]
+        }
+      },
+      {
+        id: 'msg_wst_agent_4',
+        sender: 'Finance reviewer',
+        senderType: 'agent',
+        time: '12 hours ago',
+        content: 'I have encountered a policy block while trying to fetch merchant credentials. I require governed authorization to proceed.',
+        hasApprovalCard: true,
+        approvalCard: {
+          id: 'app_default_1',
+          title: 'Access credentials required',
+          risk: 'medium',
+          needed: 'read access token for central business ledger API',
+          alternative: 'proceed using the raw CSV bank statements exported last month (covers 80% of validation steps).',
+          status: 'requested'
+        },
+        comments: [
+          {
+            id: 'cmt_wst_1',
+            author: 'Priya R.',
+            avatarInitials: 'PR',
+            avatarColor: '#534AB7',
+            time: '10 hours ago',
+            body: 'Do not grant full live bank ledger access yet. Let us wait for Sarah\'s review or try using the alternative path.',
+            reactions: [{ emoji: '👍', count: 2, active: true }]
+          }
+        ]
+      }
     ];
   }
   
-  // Mock runs list if none exist
+  // Set up mock runs list if none exist
   if (!wst.runs) {
     wst.runs = [
-      { id: 'run_12', name: 'Run #12 (Scheduled)', status: 'complete', time: '12 hrs ago', duration: '45s', logs: 'analyzed ledger' },
-      { id: 'run_11', name: 'Run #11 (Scheduled)', status: 'complete', time: '1 day ago', duration: '52s', logs: 'matched receipts' },
-      { id: 'run_10', name: 'Run #10 (Manual Override)', status: 'failed', time: '2 days ago', duration: '12s', logs: 'auth exception' }
+      { id: 'run_wst_1', name: 'scheduled daily run', meta: 'Finance reviewer · 12 hrs ago', status: 'waiting' },
+      { id: 'run_wst_2', name: 'daily scheduled run', meta: 'Finance reviewer · 1 day ago', status: 'done' },
+      { id: 'run_wst_3', name: 'daily scheduled run', meta: 'Finance reviewer · 2 days ago', status: 'done' }
     ];
   }
 
-  let tabContentHTML = '';
-  if (state.workstreamTab === 'messages') {
-    tabContentHTML = `
-      <div style="flex:1; display:flex; flex-direction:column; min-height:0; background:var(--color-bg-secondary); border:0.5px solid var(--color-border-secondary); border-radius:12px; overflow:hidden;">
-        <div style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px;" id="workstream-msg-feed">
-          ${wst.messages.map(msg => `
-            <div style="display:flex; flex-direction:column; gap:4px; text-align:left; background:var(--color-bg-primary); border:0.5px solid var(--color-border-tertiary); border-radius:8px; padding:10px 12px; max-width:85%; align-self:${msg.sender === 'user' ? 'flex-end' : 'flex-start'}; border-right-width:${msg.sender === 'user' ? '2.5px' : '0.5px'}; border-right-color:${msg.sender === 'user' ? 'var(--color-accent-blue)' : 'inherit'}; border-left-width:${msg.sender !== 'user' ? '2.5px' : '0.5px'}; border-left-color:${msg.sender === 'system' ? 'var(--color-text-tertiary)' : (msg.sender === 'user' ? 'inherit' : 'var(--color-accent-600)')}">
-              <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
-                <strong style="font-size:11.5px; color:var(--color-text-primary); text-transform:lowercase;">${msg.sender}</strong>
-                <span style="font-size:10px; color:var(--color-text-tertiary);">${msg.time}</span>
-              </div>
-              <p style="font-size:13px; color:var(--color-text-secondary); margin:4px 0 0 0; line-height:1.4;">${msg.content}</p>
-            </div>
-          `).join('')}
-        </div>
+  // Header collaborator avatars calculations
+  const maxVisibleAvatars = 4;
+  const visibleMembers = wst.members.slice(0, maxVisibleAvatars);
+  const overflowCount = wst.members.length - maxVisibleAvatars;
+  
+  // Resolve outer layout markup
+  DOM.contentArea.innerHTML = `
+    <div class="workstream-page workstream-page-layout">
+      
+      <!-- MAIN WORKSTREAM CHANNEL AREA -->
+      <div class="ws-main-content">
         
-        <!-- COMPOSER -->
-        <div style="padding:12px; border-top:0.5px solid var(--color-border-secondary); background:var(--color-bg-primary);">
-          <div style="display:flex; gap:8px; align-items:center; background:var(--color-bg-secondary); border:0.5px solid var(--color-border-secondary); border-radius:8px; padding:6px 12px;">
-            <input type="text" id="workstream-composer-input" placeholder="send instruction or override run..." style="flex:1; background:none; border:none; color:var(--color-text-primary); font-size:13px; outline:none;" onkeydown="handleWorkstreamComposerKeydown(event, '${wst.id}')">
-            <button class="btn-send" onclick="sendWorkstreamMessage('${wst.id}')" style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-              <i class="ti ti-arrow-up" style="font-size:12px;"></i>
-            </button>
+        <!-- HEADER ZONE -->
+        <div class="ws-header">
+          <div class="ws-header-title-row">
+            <div class="ws-header-title-left">
+              <span class="ws-live-dot ${wst.status === 'running' ? 'running' : (wst.status === 'paused' ? 'paused' : 'idle')}"></span>
+              <span class="ws-title">${wst.name}</span>
+            </div>
+            
+            <!-- Collaborators Avatars in Header -->
+            <div class="ws-avatars-stack" onclick="scrollToRailSection('members')" style="cursor:pointer;" data-tooltip="view members">
+              ${visibleMembers.map(m => `
+                <div class="ws-avatar-circle" style="background-color:${m.color};" aria-label="${m.name} avatar">
+                  ${m.initials}
+                </div>
+              `).join('')}
+              ${overflowCount > 0 ? `
+                <div class="ws-avatar-overflow">+${overflowCount}</div>
+              ` : ''}
+            </div>
+          </div>
+          
+          <!-- Metadata row -->
+          <div class="ws-header-meta-row">
+            <span>Governed by <strong style="color:var(--ws-text-secondary); font-weight:500;">finance reviewer</strong></span>
+            <span class="ws-dot-separator"></span>
+            <span>runs daily · scheduled + manual</span>
+            <span class="ws-dot-separator"></span>
+            <span>${wst.members.length} members</span>
+            <span class="ws-dot-separator"></span>
+            
+            <!-- Dynamic Run Status Pill -->
+            ${wst.status === 'running' ? `
+              <span class="ws-status-pill running"><span class="ws-inner-dot"></span>running</span>
+            ` : (wst.status === 'paused' ? `
+              <span class="ws-status-pill waiting"><span class="ws-inner-dot"></span>awaiting approval</span>
+            ` : (wst.status === 'complete' ? `
+              <span class="ws-status-pill done">last run complete</span>
+            ` : `
+              <span class="ws-status-pill idle">idle</span>
+            `))}
+          </div>
+          
+          <!-- Tabs row -->
+          <div class="ws-tabs">
+            <button class="ws-tab-btn ${state.workstreamTab === 'Channel' ? 'active' : ''}" onclick="setWorkstreamTab('Channel')"><i class="ti ti-messages" style="margin-right:4px;"></i> Channel</button>
+            <button class="ws-tab-btn ${state.workstreamTab === 'Runs' ? 'active' : ''}" onclick="setWorkstreamTab('Runs')"><i class="ti ti-player-play" style="margin-right:4px;"></i> Runs</button>
+            <button class="ws-tab-btn ${state.workstreamTab === 'Outputs' ? 'active' : ''}" onclick="setWorkstreamTab('Outputs')"><i class="ti ti-file-export" style="margin-right:4px;"></i> Outputs</button>
+            <button class="ws-tab-btn ${state.workstreamTab === 'Skills' ? 'active' : ''}" onclick="setWorkstreamTab('Skills')"><i class="ti ti-tool" style="margin-right:4px;"></i> Skills</button>
+            <button class="ws-tab-btn ${state.workstreamTab === 'Members' ? 'active' : ''}" onclick="setWorkstreamTab('Members')"><i class="ti ti-users" style="margin-right:4px;"></i> Members</button>
+            <button class="ws-tab-btn ${state.workstreamTab === 'Settings' ? 'active' : ''}" onclick="setWorkstreamTab('Settings')"><i class="ti ti-settings" style="margin-right:4px;"></i> Settings</button>
           </div>
         </div>
+        
+        <!-- MAIN VIEW FLEX CONTAINER -->
+        <div style="flex:1; display:flex; flex-direction:column; min-height:0; position:relative;">
+          ${renderActiveWorkstreamTab(wst)}
+        </div>
+        
+      </div>
+      
+      <!-- ALWAYS VISIBLE RIGHT RAIL -->
+      <div class="ws-rail" id="workstream-right-rail">
+        
+        <!-- Members Section -->
+        <div class="ws-rail-section" id="rail-section-members">
+          <div class="ws-rail-section-header">
+            <span class="ws-label-caps">Members</span>
+          </div>
+          <div style="display:flex; flex-direction:column;">
+            ${wst.members.map(m => `
+              <div class="ws-rail-member-row">
+                <div class="ws-rail-member-avatar ${m.type === 'human' ? 'human' : 'agent'}" style="background-color:${m.color};" aria-label="${m.name} avatar">
+                  ${m.initials}
+                </div>
+                <div class="ws-rail-member-info">
+                  <span class="ws-rail-member-name">${m.name}</span>
+                  <span class="ws-rail-member-role">${m.role}</span>
+                </div>
+                <span class="ws-rail-status-dot ${m.status}"></span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <!-- Skills Section -->
+        <div class="ws-rail-section" id="rail-section-skills">
+          <div class="ws-rail-section-header">
+            <span class="ws-label-caps">Skills attached</span>
+          </div>
+          <div style="display:flex; flex-direction:column;">
+            ${wst.skills.map(sk => `
+              <div class="ws-rail-skill-row" onclick="window.location.hash='#/customize/skills'">
+                <i class="ti ti-tool"></i>
+                <span>${sk}</span>
+              </div>
+            `).join('')}
+            <div class="ws-rail-add-skill-row" onclick="addWorkstreamSkill('${wst.id}')">
+              <i class="ti ti-plus" style="font-size:12px;"></i>
+              <span>+ Add skill</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Recent Runs Section -->
+        <div class="ws-rail-section" id="rail-section-runs">
+          <div class="ws-rail-section-header">
+            <span class="ws-label-caps">Recent runs</span>
+            <span class="ws-rail-link" onclick="setWorkstreamTab('Runs')">View all</span>
+          </div>
+          <div style="display:flex; flex-direction:column;">
+            ${wst.runs.slice(0, 3).map(r => `
+              <div class="ws-rail-run-row">
+                <div class="ws-rail-run-top">
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <i class="ti ti-activity" style="font-size:14px; color:var(--ws-text-tertiary);"></i>
+                    <span class="ws-rail-run-name" title="${r.name}">${r.name}</span>
+                  </div>
+                  <span class="ws-rail-run-status ${r.status}">${r.status}</span>
+                </div>
+                <span class="ws-rail-run-meta">${r.meta}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <!-- Impact Stats Section -->
+        <div class="ws-rail-section" id="rail-section-stats">
+          <div class="ws-rail-section-header">
+            <span class="ws-label-caps">This month</span>
+          </div>
+          <div class="ws-rail-stats-grid">
+            <div class="ws-rail-stat-card">
+              <i class="ti ti-player-play" style="color:var(--ws-text-secondary); margin-bottom:6px; font-size:16px;"></i>
+              <span class="ws-rail-stat-number">${wst.stats.runs}</span>
+              <span class="ws-rail-stat-label">runs completed</span>
+            </div>
+            <div class="ws-rail-stat-card">
+              <i class="ti ti-alert-triangle" style="color:var(--ws-text-secondary); margin-bottom:6px; font-size:16px;"></i>
+              <span class="ws-rail-stat-number">${wst.stats.anomalies}</span>
+              <span class="ws-rail-stat-label">anomalies found</span>
+            </div>
+            <div class="ws-rail-stat-card">
+              <i class="ti ti-shield-check" style="color:var(--ws-text-secondary); margin-bottom:6px; font-size:16px;"></i>
+              <span class="ws-rail-stat-number">${wst.stats.approvals}</span>
+              <span class="ws-rail-stat-label">approvals asked</span>
+            </div>
+            <div class="ws-rail-stat-card">
+              <i class="ti ti-chart-pie" style="color:var(--ws-green-text); margin-bottom:6px; font-size:16px;"></i>
+              <span class="ws-rail-stat-number" style="color:var(--ws-green-text);">${wst.stats.rate}</span>
+              <span class="ws-rail-stat-label">completion rate</span>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+      
+    </div>
+  `;
+
+  // Auto-scroll feed to bottom
+  if (state.workstreamTab === 'Channel') {
+    const feed = document.getElementById('workstream-channel-feed');
+    if (feed) feed.scrollTop = feed.scrollHeight;
+  }
+}
+
+// Render dynamic content based on active workstream tab
+function renderActiveWorkstreamTab(wst) {
+  if (state.workstreamTab === 'Channel') {
+    return `
+      <!-- Scrollable collaborative feed -->
+      <div class="ws-feed" id="workstream-channel-feed">
+        ${renderWorkstreamMessagesList(wst)}
+      </div>
+      
+      <!-- FIXED BOTTOM PROMPT AREA -->
+      <div class="ws-prompt-area" style="padding: 16px; background-color: var(--ws-bg-primary); border-top: 1px solid var(--ws-border-subtle);">
+        ${getPromptBoxHTML(
+          state.activeChips.some(c => c.label === 'redirect') 
+            ? 'Give the agent new instructions...' 
+            : 'Message the workstream, instruct Finance reviewer, or add context...',
+          'workstream-composer'
+        )}
       </div>
     `;
-  } else if (state.workstreamTab === 'runs') {
-    tabContentHTML = `
-      <div style="display:flex; flex-direction:column; gap:12px; overflow-y:auto;">
+  } else if (state.workstreamTab === 'Runs') {
+    return `
+      <div style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; background-color:var(--ws-bg-primary);">
+        <span class="ws-label-caps" style="text-align:left; margin-bottom:4px;">Full Execution History</span>
         ${wst.runs.map(run => `
-          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--color-bg-secondary); border:0.5px solid var(--color-border-secondary); border-radius:8px; padding:12px 16px; text-align:left;">
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--ws-bg-secondary); border:1px solid var(--ws-border-subtle); border-radius:8px; padding:12px 16px; text-align:left;">
             <div>
               <div style="display:flex; align-items:center; gap:8px;">
-                <span class="status-pulse-dot ${run.status === 'complete' ? 'pulse-green' : 'pulse-red'}" style="width:6px; height:6px;"></span>
-                <span style="font-size:13.5px; font-weight:600; color:var(--color-text-primary);">${run.name}</span>
+                <span class="ws-status-pill ${run.status === 'done' ? 'done' : (run.status === 'running' ? 'running' : (run.status === 'waiting' ? 'waiting' : 'failed'))}">
+                  ${run.status === 'running' ? '<span class="ws-inner-dot"></span>' : ''}
+                  ${run.status}
+                </span>
+                <span style="font-size:13.5px; font-weight:500; color:var(--ws-text-primary);">${run.name}</span>
               </div>
-              <div style="font-size:11.5px; color:var(--color-text-secondary); margin-top:4px;">
-                Logs: <span style="font-family:monospace; background:var(--color-bg-tertiary); padding:2px 4px; border-radius:4px;">${run.logs}</span>
+              <div style="font-size:11.5px; color:var(--ws-text-secondary); margin-top:4px;">
+                Logs: <span class="ws-mono" style="background:var(--ws-bg-tertiary); padding:2px 6px; border-radius:4px; color:var(--ws-text-primary);">${run.status === 'done' ? 'audit succeeded · 0 anomalies' : (run.status === 'running' ? 'analyzing merchant registry' : 'awaiting credential sync')}</span>
               </div>
             </div>
             <div style="text-align:right;">
-              <span style="font-size:12px; font-weight:500; color:var(--color-text-primary);">${run.duration}</span><br>
-              <span style="font-size:11px; color:var(--color-text-tertiary);">${run.time}</span>
+              <span style="font-size:12px; font-weight:500; color:var(--ws-text-primary);">${run.status === 'done' ? '8s' : '—'}</span><br>
+              <span style="font-size:11px; color:var(--ws-text-tertiary);">${run.meta}</span>
             </div>
           </div>
         `).join('')}
       </div>
     `;
-  } else if (state.workstreamTab === 'config') {
-    tabContentHTML = `
-      <div style="background:var(--color-bg-secondary); border:0.5px solid var(--color-border-secondary); border-radius:12px; padding:20px; text-align:left; display:flex; flex-direction:column; gap:16px;">
-        <div class="creation-form-grid" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
-          <div class="creation-form-row" style="display:flex; flex-direction:column; gap:6px;">
-            <label style="font-size:10.5px; font-weight:500; color:var(--color-text-secondary); text-transform:uppercase;">workstream name</label>
-            <input type="text" id="cfg-wst-name" value="${wst.name}" style="background:var(--color-bg-primary); border:0.5px solid var(--color-border-secondary); color:var(--color-text-primary); border-radius:6px; padding:8px; font-size:13px; outline:none;">
+  } else if (state.workstreamTab === 'Outputs') {
+    return `
+      <div style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; background-color:var(--ws-bg-primary);">
+        <span class="ws-label-caps" style="text-align:left; margin-bottom:4px;">Deliverables Log</span>
+        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;">
+          <div style="background:var(--ws-bg-secondary); border:1px solid var(--ws-border-subtle); border-radius:8px; padding:16px; text-align:left; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <i class="ti ti-file-spreadsheet" style="font-size:24px; color:var(--ws-green-text);"></i>
+              <div style="display:flex; flex-direction:column;">
+                <span style="font-size:13px; font-weight:500; color:var(--ws-text-primary);">vendor_outreach_close_report.xlsx</span>
+                <span style="font-size:11px; color:var(--ws-text-tertiary);">xlsx spreadsheet · 2.4 mb · generated 12 hrs ago</span>
+              </div>
+            </div>
+            <div style="display:flex; gap:6px; justify-content:flex-end; margin-top:8px;">
+              <button class="ws-btn-secondary" style="padding:4px 10px; font-size:11px;" onclick="showNotification('opening spreadsheet viewer...')">View output</button>
+              <button class="ws-btn-approve" style="padding:4px 10px; font-size:11px; background-color:var(--ws-blue);" onclick="showNotification('downloading spreadsheet...')">Download</button>
+            </div>
           </div>
-          <div class="creation-form-row" style="display:flex; flex-direction:column; gap:6px;">
-            <label style="font-size:10.5px; font-weight:500; color:var(--color-text-secondary); text-transform:uppercase;">assigned softworker</label>
-            <select id="cfg-wst-agent" style="background:var(--color-bg-primary); border:0.5px solid var(--color-border-secondary); color:var(--color-text-primary); border-radius:6px; padding:8px; font-size:13px; outline:none;">
-              ${state.agents.map(ag => `<option value="${ag.id}" ${ag.id === wst.agentId ? 'selected' : ''}>${ag.name}</option>`).join('')}
-            </select>
-          </div>
-          <div class="creation-form-row" style="display:flex; flex-direction:column; gap:6px;">
-            <label style="font-size:10.5px; font-weight:500; color:var(--color-text-secondary); text-transform:uppercase;">execution schedule</label>
-            <select id="cfg-wst-freq" style="background:var(--color-bg-primary); border:0.5px solid var(--color-border-secondary); color:var(--color-text-primary); border-radius:6px; padding:8px; font-size:13px; outline:none;">
-              <option value="daily" ${wst.frequency === 'daily' ? 'selected' : ''}>daily at 9:00 AM</option>
-              <option value="weekly" ${wst.frequency === 'weekly' ? 'selected' : ''}>weekly on mondays</option>
-              <option value="continuous" ${wst.frequency === 'continuous' ? 'selected' : ''}>continuous (event driven)</option>
-              <option value="manual" ${wst.frequency === 'manual' ? 'selected' : ''}>manual trigger</option>
-            </select>
-          </div>
-          <div class="creation-form-row" style="display:flex; flex-direction:column; gap:6px;">
-            <label style="font-size:10.5px; font-weight:500; color:var(--color-text-secondary); text-transform:uppercase;">active status</label>
-            <select id="cfg-wst-status" style="background:var(--color-bg-primary); border:0.5px solid var(--color-border-secondary); color:var(--color-text-primary); border-radius:6px; padding:8px; font-size:13px; outline:none;">
-              <option value="running" ${wst.status === 'running' ? 'selected' : ''}>Active Running</option>
-              <option value="paused" ${wst.status === 'paused' ? 'selected' : ''}>Paused / Blocked</option>
-            </select>
+          
+          <div style="background:var(--ws-bg-secondary); border:1px solid var(--ws-border-subtle); border-radius:8px; padding:16px; text-align:left; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <i class="ti ti-file-text" style="font-size:24px; color:var(--ws-blue-text);"></i>
+              <div style="display:flex; flex-direction:column;">
+                <span style="font-size:13px; font-weight:500; color:var(--ws-text-primary);">flagged_vendor_anomalies_audit.pdf</span>
+                <span style="font-size:11px; color:var(--ws-text-tertiary);">pdf document · 450 kb · generated 2 days ago</span>
+              </div>
+            </div>
+            <div style="display:flex; gap:6px; justify-content:flex-end; margin-top:8px;">
+              <button class="ws-btn-secondary" style="padding:4px 10px; font-size:11px;" onclick="showNotification('opening pdf viewer...')">View output</button>
+              <button class="ws-btn-approve" style="padding:4px 10px; font-size:11px; background-color:var(--ws-blue);" onclick="showNotification('downloading pdf...')">Download</button>
+            </div>
           </div>
         </div>
-        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
-          <button class="btn btn-primary btn-sm" onclick="saveWorkstreamConfig('${wst.id}')">Save changes</button>
+      </div>
+    `;
+  } else if (state.workstreamTab === 'Skills') {
+    return `
+      <div style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; background-color:var(--ws-bg-primary);">
+        <span class="ws-label-caps" style="text-align:left; margin-bottom:4px;">Attached Capabilities</span>
+        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;">
+          <div style="background:var(--ws-bg-secondary); border:1px solid var(--ws-border-subtle); border-radius:8px; padding:14px; text-align:left; display:flex; align-items:flex-start; gap:12px; cursor:pointer;" onclick="window.location.hash='#/customize/skills'">
+            <div style="background-color:var(--ws-blue-dim); color:var(--ws-blue-text); width:32px; height:32px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:16px;">
+              <i class="ti ti-mail-forward"></i>
+            </div>
+            <div style="display:flex; flex-direction:column;">
+              <span style="font-size:13px; font-weight:500; color:var(--ws-text-primary);">Vendor Log Audit</span>
+              <span style="font-size:11.5px; color:var(--ws-text-secondary); margin-top:2px;">Scrapes billing database tables and matches receipts against merchant IDs.</span>
+            </div>
+          </div>
+          
+          <div style="background:var(--ws-bg-secondary); border:1px solid var(--ws-border-subtle); border-radius:8px; padding:14px; text-align:left; display:flex; align-items:flex-start; gap:12px; cursor:pointer;" onclick="window.location.hash='#/customize/skills'">
+            <div style="background-color:var(--ws-purple-dim); color:var(--ws-purple); width:32px; height:32px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:16px;">
+              <i class="ti ti-shield-code"></i>
+            </div>
+            <div style="display:flex; flex-direction:column;">
+              <span style="font-size:13px; font-weight:500; color:var(--ws-text-primary);">Anomaly Detection</span>
+              <span style="font-size:11.5px; color:var(--ws-text-secondary); margin-top:2px;">Deep statistical verification to isolate billing duplicates or pricing anomalies.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (state.workstreamTab === 'Members') {
+    return `
+      <div style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; background-color:var(--ws-bg-primary);">
+        <span class="ws-label-caps" style="text-align:left; margin-bottom:4px;">Workspace Co-workers</span>
+        <div style="background:var(--ws-bg-secondary); border:1px solid var(--ws-border-subtle); border-radius:8px; display:flex; flex-direction:column;">
+          ${wst.members.map((m, idx) => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:${idx === wst.members.length - 1 ? 'none' : '1px solid var(--ws-border-subtle)'};">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div class="ws-avatar-circle" style="width:28px; height:28px; font-size:11px; margin-left:0; background-color:${m.color}; border-radius:${m.type === 'human' ? '50%' : '6px'};">
+                  ${m.initials}
+                </div>
+                <div style="display:flex; flex-direction:column; text-align:left;">
+                  <span style="font-size:13px; font-weight:500; color:var(--ws-text-primary);">${m.name}</span>
+                  <span style="font-size:11px; color:var(--ws-text-tertiary);">${m.role}</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:11.5px; color:var(--ws-text-secondary);">${m.status === 'running' ? 'active in run' : m.status}</span>
+                <span class="ws-rail-status-dot ${m.status}" style="margin-left:0;"></span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  } else if (state.workstreamTab === 'Settings') {
+    return `
+      <div style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; background-color:var(--ws-bg-primary);">
+        <span class="ws-label-caps" style="text-align:left; margin-bottom:8px;">Rules & Routing Parameters</span>
+        <div style="background:var(--ws-bg-secondary); border:1px solid var(--ws-border-subtle); border-radius:8px; padding:20px; text-align:left; display:flex; flex-direction:column; gap:16px;">
+          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:10.5px; font-weight:500; color:var(--ws-text-secondary); text-transform:uppercase;">workstream name</label>
+              <input type="text" id="cfg-wst-name" value="${wst.name}" style="background:var(--ws-bg-primary); border:1px solid var(--ws-border-default); color:var(--ws-text-primary); border-radius:6px; padding:8px; font-size:13px; outline:none; font-family:inherit;">
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:10.5px; font-weight:500; color:var(--ws-text-secondary); text-transform:uppercase;">assigned softworker</label>
+              <select id="cfg-wst-agent" style="background:var(--ws-bg-primary); border:1px solid var(--ws-border-default); color:var(--ws-text-primary); border-radius:6px; padding:8px; font-size:13px; outline:none; font-family:inherit;">
+                ${state.agents.map(ag => `<option value="${ag.id}" ${ag.id === wst.agentId ? 'selected' : ''}>${ag.name}</option>`).join('')}
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:10.5px; font-weight:500; color:var(--ws-text-secondary); text-transform:uppercase;">execution schedule</label>
+              <select id="cfg-wst-freq" style="background:var(--ws-bg-primary); border:1px solid var(--ws-border-default); color:var(--ws-text-primary); border-radius:6px; padding:8px; font-size:13px; outline:none; font-family:inherit;">
+                <option value="daily" ${wst.frequency === 'daily' ? 'selected' : ''}>daily at 9:00 AM</option>
+                <option value="weekly" ${wst.frequency === 'weekly' ? 'selected' : ''}>weekly on mondays</option>
+                <option value="continuous" ${wst.frequency === 'continuous' ? 'selected' : ''}>continuous (event driven)</option>
+                <option value="manual" ${wst.frequency === 'manual' ? 'selected' : ''}>manual trigger</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:10.5px; font-weight:500; color:var(--ws-text-secondary); text-transform:uppercase;">active status</label>
+              <select id="cfg-wst-status" style="background:var(--ws-bg-primary); border:1px solid var(--ws-border-default); color:var(--ws-text-primary); border-radius:6px; padding:8px; font-size:13px; outline:none; font-family:inherit;">
+                <option value="running" ${wst.status === 'running' ? 'selected' : ''}>Active Running</option>
+                <option value="paused" ${wst.status === 'paused' ? 'selected' : ''}>Paused / Blocked</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
+            <button class="ws-btn-approve" onclick="saveWorkstreamConfig('${wst.id}')">Save changes</button>
+          </div>
         </div>
       </div>
     `;
   }
+}
 
-  DOM.contentArea.innerHTML = `
-    <div style="padding: 24px; display: flex; flex-direction: column; gap: 20px; text-align: left; height: 100%; overflow-y: hidden;">
-      
-      <!-- HEADER -->
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:0.5px solid var(--color-border-secondary); padding-bottom:12px; flex-shrink:0;">
-        <div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span class="status-pulse-dot ${wst.status === 'running' ? 'pulse-green' : 'pulse-amber'}" style="width:7px; height:7px;"></span>
-            <h2 style="font-size:20px; font-weight:600; color:var(--color-text-primary); margin:0;">${wst.name}</h2>
+// Render dynamic coworker feed items
+function renderWorkstreamMessagesList(wst) {
+  if (wst.messages.length === 0) {
+    return `
+      <div class="ws-empty-state-container">
+        <div class="ws-empty-state-illustration">
+          <i class="ti ti-messages"></i>
+        </div>
+        <span class="ws-empty-state-title">Workstream ready</span>
+        <p class="ws-empty-state-body">Finance reviewer is assigned and waiting. Send a message or trigger a run to start.</p>
+        <button class="ws-empty-state-cta" onclick="simulateWorkstreamRun('${wst.id}')">Run first check</button>
+      </div>
+    `;
+  }
+  
+  let html = '';
+  let lastSender = '';
+  let lastTime = null;
+  
+  wst.messages.forEach(msg => {
+    // Process system divider messages
+    if (msg.senderType === 'system') {
+      html += `
+        <div class="ws-system-message">
+          <div class="ws-system-message-divider"></div>
+          <span class="ws-system-message-text">${msg.content}</span>
+          <div class="ws-system-message-divider"></div>
+        </div>
+      `;
+      lastSender = 'system';
+      return;
+    }
+    
+    // Grouping rule: sender matches and time within 5 minutes (mocked via exact string match)
+    const isGrouped = (msg.sender === lastSender) && (lastSender !== 'system');
+    lastSender = msg.sender;
+    
+    if (isGrouped) {
+      // Subordinated follow-up message body
+      html += `
+        <div class="ws-message-container">
+          <div class="ws-message-sub">
+            <div class="ws-message-body ${msg.senderType}">
+              ${msg.content}
+            </div>
+            ${renderEmbeddedCards(msg)}
+            ${renderCommentThread(msg)}
           </div>
-          <div style="font-size:12.5px; color:var(--color-text-secondary); margin-top:2px;">governed by <strong>${assignedAgent.name}</strong> · runs ${wst.frequency || 'manually'}</div>
         </div>
-        
-        <div style="display:flex; gap:8px;">
-          <button class="btn btn-outline btn-sm" onclick="triggerManualRun('${wst.id}')">
-            <i class="ti ti-player-play"></i>
-            <span>run manual check</span>
-          </button>
+      `;
+    } else {
+      // Full message item layout
+      const isAgent = msg.senderType === 'agent';
+      const initials = isAgent ? msg.sender.substring(0, 2) : msg.sender.split(' ').map(n=>n[0]).join('');
+      
+      html += `
+        <div class="ws-message-container">
+          <div class="ws-message-item">
+            
+            <!-- Left Avatar -->
+            <div class="ws-message-avatar-wrap">
+              <div class="ws-message-avatar ${isAgent ? 'ws-avatar-agent' : 'ws-avatar-human'}" style="background-color:${isAgent ? '#185FA5' : (msg.avatarColor || '#854F0B')}">
+                ${initials}
+              </div>
+            </div>
+            
+            <!-- Right Content -->
+            <div class="ws-message-content-wrap">
+              <div class="ws-message-header">
+                <span class="ws-message-sender-name">${msg.sender}</span>
+                
+                <!-- Role badges -->
+                ${isAgent ? `
+                  <span class="ws-message-role-badge softworker">softworker</span>
+                ` : `
+                  <span class="ws-message-role-badge ${msg.role || 'operator'}">${msg.role || 'operator'}</span>
+                `}
+                
+                <span class="ws-message-timestamp">${msg.time}</span>
+              </div>
+              
+              <div class="ws-message-body ${msg.senderType}">
+                ${msg.content}
+              </div>
+              
+              ${renderEmbeddedCards(msg)}
+              ${renderCommentThread(msg)}
+              
+            </div>
+            
+            <!-- Inline Hover Actions -->
+            <div class="ws-hover-actions">
+              <button class="ws-hover-btn" onclick="showInlineReplyInput('${msg.id}')" data-tooltip="Reply in thread">
+                <i class="ti ti-message-reply"></i>
+              </button>
+              <button class="ws-hover-btn" onclick="triggerForkDialog('${msg.id}')" data-tooltip="Fork conversation">
+                <i class="ti ti-git-branch"></i>
+              </button>
+              <button class="ws-hover-btn" onclick="showReactionPicker('${msg.id}')" data-tooltip="React">
+                <i class="ti ti-mood-smile"></i>
+              </button>
+              <button class="ws-hover-btn" onclick="showNotification('more options')" data-tooltip="More">
+                <i class="ti ti-dots"></i>
+              </button>
+            </div>
+            
+          </div>
+        </div>
+      `;
+    }
+  });
+  
+  return html;
+}
+
+// Render embedded card items (plan, approval, output)
+function renderEmbeddedCards(msg) {
+  let cardHTML = '';
+  
+  // Plan card
+  if (msg.hasPlan && msg.plan) {
+    cardHTML += `
+      <div class="ws-plan-card">
+        <div class="ws-plan-header">Plan</div>
+        ${msg.plan.steps.map(step => {
+          let stepClass = 'pending';
+          let icon = '<i class="ti ti-circle"></i>';
+          if (step.status === 'done') {
+            stepClass = 'done';
+            icon = '<i class="ti ti-check" style="color:var(--ws-green);"></i>';
+          } else if (step.status === 'active') {
+            stepClass = 'active';
+            icon = '<i class="ti ti-loader"></i>';
+          }
+          
+          return `
+            <div class="ws-plan-step ${stepClass}">
+              <span class="ws-step-icon ${step.status === 'active' ? 'active' : ''}">${icon}</span>
+              <span>${step.label}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+  
+  // Approval Card
+  if (msg.hasApprovalCard && msg.approvalCard) {
+    const card = msg.approvalCard;
+    
+    if (card.status === 'requested') {
+      cardHTML += `
+        <div class="ws-approval-card">
+          <div class="ws-approval-header-row">
+            <i class="ti ti-shield" style="color:var(--ws-amber); font-size:15px;"></i>
+            <span class="ws-approval-title">Access credentials required</span>
+            <span class="ws-risk-badge ${card.risk || 'medium'}">${card.risk || 'medium'} risk</span>
+          </div>
+          
+          <div class="ws-approval-body-text">
+            The agent needs the following permissions to complete this execution check:<br>
+            <strong style="color:var(--ws-text-primary); font-weight:500;">· ${card.needed}</strong>
+          </div>
+          
+          <div class="ws-approval-alt-path">
+            <span class="ws-approval-alt-label">Alternative path</span>
+            <span class="ws-approval-alt-text">${card.alternative}</span>
+          </div>
+          
+          <div class="ws-approval-actions">
+            <button class="ws-btn-approve" onclick="resolveInlineApproval('${msg.id}', 'granted')">Grant access</button>
+            <button class="ws-btn-secondary" onclick="resolveInlineApproval('${msg.id}', 'alternative')">Use alternative path</button>
+            <button class="ws-btn-secondary" onclick="resolveInlineApproval('${msg.id}', 'rejected')">Decline</button>
+          </div>
+        </div>
+      `;
+    } else if (card.status === 'granted') {
+      cardHTML += `
+        <div class="ws-approval-card">
+          <div class="ws-approval-resolved granted">
+            <span class="ws-resolved-title">
+              <i class="ti ti-circle-check" style="color:var(--ws-green);"></i>
+              Access granted
+            </span>
+            <span class="ws-resolved-sub">${card.needed} · scoped to this run only</span>
+            <span class="ws-resolved-sub" style="font-size:10px; opacity:0.8; margin-top:2px;">Granted by ${card.resolvedBy || 'Alex Rivers'} · just now</span>
+          </div>
+        </div>
+      `;
+    } else if (card.status === 'alternative') {
+      cardHTML += `
+        <div class="ws-approval-card">
+          <div class="ws-approval-resolved alt">
+            <span class="ws-resolved-title">
+              <i class="ti ti-info-circle"></i>
+              Proceeding with alternative path
+            </span>
+            <span class="ws-resolved-sub">Using cached vendor list from last month</span>
+            <span class="ws-resolved-sub" style="font-size:10px; opacity:0.8; margin-top:2px;">Triggered by ${card.resolvedBy || 'Alex Rivers'} · just now</span>
+          </div>
+        </div>
+      `;
+    } else if (card.status === 'rejected') {
+      cardHTML += `
+        <div class="ws-approval-card">
+          <div class="ws-approval-resolved rejected">
+            <span class="ws-resolved-title">
+              <i class="ti ti-circle-x" style="color:var(--ws-red);"></i>
+              Run Declined
+            </span>
+            <span class="ws-resolved-sub">Credentials verification blocked. Execution paused.</span>
+          </div>
+        </div>
+      `;
+    }
+  }
+  
+  // Output Card
+  if (msg.hasOutputCard && msg.outputCard) {
+    cardHTML += `
+      <div class="ws-output-card">
+        <div class="ws-output-header-row">
+          <i class="ti ti-file-text" style="color:var(--ws-green); font-size:14px;"></i>
+          <span class="ws-output-title">Output ready — ${msg.outputCard.title}</span>
+        </div>
+        <div class="ws-output-summary">${msg.outputCard.summary}</div>
+        <div class="ws-approval-actions">
+          <button class="ws-btn-approve" onclick="showNotification('opening output spreadsheet...')" style="background-color:var(--ws-blue);">View output</button>
+          <button class="ws-btn-secondary" onclick="showNotification('downloading spreadsheet...')">Download</button>
         </div>
       </div>
-      
-      <!-- TABS -->
-      <div class="view-tabs-row" style="flex-shrink:0;">
-        <button class="view-tab-btn ${state.workstreamTab === 'messages' ? 'active' : ''}" onclick="setWorkstreamTab('messages')">activity log</button>
-        <button class="view-tab-btn ${state.workstreamTab === 'runs' ? 'active' : ''}" onclick="setWorkstreamTab('runs')">execution history</button>
-        <button class="view-tab-btn ${state.workstreamTab === 'config' ? 'active' : ''}" onclick="setWorkstreamTab('config')">rules & parameters</button>
-      </div>
-      
-      <!-- TAB CONTENT -->
-      <div style="flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column;">
-        ${tabContentHTML}
-      </div>
-      
+    `;
+  }
+  
+  return cardHTML;
+}
+
+// Render threaded reply logs under feed messages
+function renderCommentThread(msg) {
+  if (!msg.comments || msg.comments.length === 0) return '';
+  
+  return `
+    <div class="ws-comments-container">
+      ${msg.comments.map(c => `
+        <div class="ws-comment-thread">
+          <div class="ws-comment-header">
+            <div class="ws-comment-avatar" style="background-color:${c.avatarColor || '#534AB7'};">
+              ${c.avatarInitials}
+            </div>
+            <span class="ws-comment-author">${c.author}</span>
+            <span class="ws-comment-time">${c.time}</span>
+          </div>
+          <div class="ws-comment-body">
+            ${c.body}
+          </div>
+          
+          <div class="ws-comment-actions">
+            ${c.reactions ? c.reactions.map(r => `
+              <div class="ws-reaction-pill ${r.active ? 'active' : ''}" onclick="toggleCommentReaction('${msg.id}', '${c.id}')">
+                <span>${r.emoji}</span>
+                <span>${r.count}</span>
+              </div>
+            `).join('') : ''}
+            <button class="ws-comment-reply-btn" onclick="showInlineReplyInput('${msg.id}')">reply</button>
+          </div>
+        </div>
+      `).join('')}
     </div>
   `;
+}
+
+// Inline comment thread actions
+function toggleCommentReaction(msgId, commentId) {
+  const wst = state.workstreams.find(w => w.id === state.activeWorkstreamId);
+  if (!wst) return;
+  const msg = wst.messages.find(m => m.id === msgId);
+  if (!msg) return;
+  const comment = msg.comments.find(c => c.id === commentId);
+  if (!comment) return;
   
-  // Scroll message feed to bottom
-  if (state.workstreamTab === 'messages') {
-    const feed = document.getElementById('workstream-msg-feed');
-    if (feed) feed.scrollTop = feed.scrollHeight;
+  comment.reactions.forEach(r => {
+    if (r.active) {
+      r.count--;
+      r.active = false;
+    } else {
+      r.count++;
+      r.active = true;
+    }
+  });
+  
+  renderView();
+}
+
+function showInlineReplyInput(msgId) {
+  const text = prompt("Enter your reply text:");
+  if (text && text.trim()) {
+    commentOnWorkstreamMessage(msgId, text.trim());
+  }
+}
+
+function commentOnWorkstreamMessage(msgId, text) {
+  const wst = state.workstreams.find(w => w.id === state.activeWorkstreamId);
+  if (!wst) return;
+  const msg = wst.messages.find(m => m.id === msgId);
+  if (!msg) return;
+  
+  if (!msg.comments) msg.comments = [];
+  
+  msg.comments.push({
+    id: 'cmt_' + Date.now(),
+    author: 'Alex Rivers',
+    avatarInitials: 'AR',
+    avatarColor: '#854F0B',
+    time: 'just now',
+    body: text,
+    reactions: []
+  });
+  
+  renderView();
+  showToast('Reply posted to message thread!');
+}
+
+function triggerForkDialog(msgId) {
+  const wst = state.workstreams.find(w => w.id === state.activeWorkstreamId);
+  if (!wst) return;
+  const msg = wst.messages.find(m => m.id === msgId);
+  if (!msg) return;
+  
+  // Reuse the existing global fork modal
+  const authorEl = document.getElementById('fork-preview-author');
+  const timeEl = document.getElementById('fork-preview-time');
+  const contentEl = document.getElementById('fork-preview-content');
+  
+  if (authorEl) authorEl.textContent = msg.sender || 'system';
+  if (timeEl) timeEl.textContent = msg.time;
+  if (contentEl) contentEl.textContent = msg.content;
+  
+  state.activeForkMsgId = msgId;
+  openModal('fork-modal');
+}
+
+function showReactionPicker(msgId) {
+  const emoji = prompt("Enter a reaction emoji (e.g. 👍, ❤️, 🎉):", "👍");
+  if (emoji && emoji.trim()) {
+    const wst = state.workstreams.find(w => w.id === state.activeWorkstreamId);
+    if (!wst) return;
+    const msg = wst.messages.find(m => m.id === msgId);
+    if (!msg) return;
+    
+    // Add reaction pill or comment reaction
+    showToast(`Reaction added: ${emoji}`);
+  }
+}
+
+// Scroll layout helper
+function scrollToRailSection(sectionId) {
+  const element = document.getElementById('rail-section-' + sectionId);
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+// Dropdown Toggles and controls
+function toggleWorkstreamPlusMenu(event) {
+  event.stopPropagation();
+  closeAllDropdowns();
+  state.wsPlusMenuOpen = !state.wsPlusMenuOpen;
+  renderView();
+}
+
+function addWorkstreamChip(label, type, icon) {
+  const chip = {
+    id: 'chip_' + Date.now(),
+    label: label,
+    type: type,
+    icon: icon
+  };
+  state.activeChips.push(chip);
+  state.wsPlusMenuOpen = false;
+  renderView();
+  
+  // Auto focus input
+  setTimeout(() => {
+    const input = document.getElementById('workstream-composer-input');
+    if (input) input.focus();
+  }, 50);
+}
+
+function removeWorkstreamChip(chipId) {
+  state.activeChips = state.activeChips.filter(c => c.id !== chipId);
+  renderView();
+}
+
+function toggleWorkstreamPermissionDropdown(event) {
+  event.stopPropagation();
+  closeAllDropdowns();
+  state.wsPermissionsDropdownOpen = !state.wsPermissionsDropdownOpen;
+  renderView();
+}
+
+function selectWorkstreamPermissionOption(opt) {
+  state.wsSelectedPermission = opt;
+  state.wsPermissionsDropdownOpen = false;
+  renderView();
+  showToast(`Permissions updated to ${opt}`);
+}
+
+function addRedirectChip(wstId) {
+  state.activeChips = state.activeChips.filter(c => c.label !== 'redirect');
+  addWorkstreamChip('redirect', 'override', 'ti-refresh');
+  showToast('Redirect override instruction activated!');
+}
+
+function handleWorkstreamComposerInput(event) {
+  const input = event.currentTarget;
+  const sendBtn = document.getElementById('ws-composer-send-btn');
+  if (sendBtn) {
+    if (input.innerText.trim().length > 0) {
+      sendBtn.removeAttribute('disabled');
+    } else {
+      sendBtn.setAttribute('disabled', 'true');
+    }
   }
 }
 
@@ -5020,64 +5785,213 @@ function handleWorkstreamComposerKeydown(event, wstId) {
 
 function sendWorkstreamMessage(wstId) {
   const input = document.getElementById('workstream-composer-input');
-  if (!input || !input.value.trim()) return;
-  const text = input.value.trim();
-  input.value = '';
+  if (!input || !input.innerText.trim()) return;
+  const text = input.innerText.trim();
+  input.innerText = '';
+  
+  const sendBtn = document.getElementById('ws-composer-send-btn');
+  if (sendBtn) {
+    sendBtn.setAttribute('disabled', 'true');
+  }
   
   const wst = state.workstreams.find(w => w.id === wstId);
   if (!wst) return;
   
+  // Add human message to feed
   wst.messages.push({
-    sender: 'user',
-    content: text,
-    time: 'just now'
+    id: 'msg_h_' + Date.now(),
+    sender: 'Alex Rivers',
+    senderType: 'human',
+    role: 'owner',
+    avatarColor: '#854F0B',
+    time: 'just now',
+    content: text
   });
   
+  // Clear composer chips
+  state.activeChips = [];
   renderView();
   
-  // Simulate assistant responding
+  // Simulate coworker response loop
   setTimeout(() => {
-    const assignedAgent = state.agents.find(ag => ag.id === wst.agentId) || state.agents[0];
     wst.messages.push({
-      sender: assignedAgent.name,
-      content: `instruction received: "${text}". I will integrate this rule into the next automated execution check.`,
-      time: 'just now'
+      id: 'msg_a_ack_' + Date.now(),
+      sender: 'Finance reviewer',
+      senderType: 'agent',
+      time: 'just now',
+      content: `Instruction received. Directing my execution modules to process your command: "${text}".`
     });
     renderView();
-  }, 1200);
+  }, 1000);
 }
 
-function triggerManualRun(wstId) {
+// INTERACTIVE LIFECYCLE SIMULATION CYCLE
+function simulateWorkstreamRun(wstId) {
   const wst = state.workstreams.find(w => w.id === wstId);
   if (!wst) return;
   
-  wst.activeRuns++;
+  // Step 1: Manual Run triggered
   wst.status = 'running';
-  showToast('Launching workstream task override...');
-  renderSidebar();
+  wst.messages.push({
+    id: 'sim_run_start_' + Date.now(),
+    senderType: 'system',
+    content: 'Manual run triggered by Alex Rivers · just now'
+  });
+  
+  // Insert initial agent message with running steps
+  const runMsgId = 'sim_run_agent_' + Date.now();
+  wst.messages.push({
+    id: runMsgId,
+    sender: 'Finance reviewer',
+    senderType: 'agent',
+    time: 'just now',
+    content: 'I have started the manual check execution. I will compile invoice files and launch ledger validation checks.',
+    hasPlan: true,
+    plan: {
+      steps: [
+        { id: 1, label: 'parse vendor invoice records from logs', status: 'active' },
+        { id: 2, label: 'cross-check vendor IDs against authorization ledger', status: 'pending' },
+        { id: 3, label: 'detect anomalous charge quantities & pricing exceptions', status: 'pending' },
+        { id: 4, label: 'compile anomaly reports and post output', status: 'pending' }
+      ]
+    }
+  });
+  
+  // Add running entry to recent runs rail section
+  wst.runs.unshift({
+    id: 'run_sim_' + Date.now(),
+    name: 'Manual run',
+    meta: 'Finance reviewer · just now',
+    status: 'running'
+  });
+  
+  showToast('Launching interactive manual check...');
   renderView();
   
+  // Step 2: Transition step 1 -> done, step 2 -> active
   setTimeout(() => {
-    wst.activeRuns--;
-    wst.runsCount++;
-    wst.status = 'running';
-    wst.runs.unshift({
-      id: 'run_' + Date.now(),
-      name: `Run #${wst.runsCount + 10} (Manual)`,
-      status: 'complete',
-      time: 'just now',
-      duration: '8s',
-      logs: 'manual override check succeeded'
-    });
+    const msg = wst.messages.find(m => m.id === runMsgId);
+    if (msg && msg.plan) {
+      msg.plan.steps[0].status = 'done';
+      msg.plan.steps[1].status = 'active';
+      renderView();
+    }
+  }, 1500);
+  
+  // Step 3: Hits policy block & approval wall
+  setTimeout(() => {
+    const msg = wst.messages.find(m => m.id === runMsgId);
+    if (msg && msg.plan) {
+      msg.plan.steps[1].status = 'done';
+      msg.plan.steps[2].status = 'active';
+    }
+    
+    // Pause run and insert approval request card
+    wst.status = 'paused';
+    wst.runs[0].status = 'waiting';
+    
     wst.messages.push({
-      sender: 'system',
-      content: `manual run finished. execution successful. 0 anomalies detected.`,
-      time: 'just now'
+      id: 'sim_app_msg_' + Date.now(),
+      sender: 'Finance reviewer',
+      senderType: 'agent',
+      time: 'just now',
+      content: 'I have encountered a policy block while trying to fetch merchant records. Governing authorization is required.',
+      hasApprovalCard: true,
+      approvalCard: {
+        id: 'sim_app_card_' + Date.now(),
+        title: 'Access required / Approval needed',
+        risk: 'medium',
+        needed: 'read access credentials for internal merchant register database',
+        alternative: 'covers 92% of the validation logs without access using last week\'s offline backups.',
+        status: 'requested'
+      }
     });
-    renderSidebar();
+    
+    showToast('Run paused: credential authorization required.');
     renderView();
-    showToast('Manual run check completed successfully!');
   }, 3000);
+}
+
+// Grant access on inline approval request card
+function resolveInlineApproval(msgId, decision) {
+  const wst = state.workstreams.find(w => w.id === state.activeWorkstreamId);
+  if (!wst) return;
+  const msg = wst.messages.find(m => m.id === msgId);
+  if (!msg || !msg.approvalCard) return;
+  
+  const card = msg.approvalCard;
+  card.status = decision; // 'granted', 'alternative', 'rejected'
+  card.resolvedBy = 'Alex Rivers';
+  
+  if (decision === 'granted' || decision === 'alternative') {
+    wst.status = 'running';
+    wst.runs[0].status = 'running';
+    
+    showToast(decision === 'granted' ? 'Access granted. Resuming run...' : 'Proceeding using alternative path...');
+    renderView();
+    
+    // Resume run cycle
+    setTimeout(() => {
+      // Find the main running plan message and complete step 3, start step 4
+      const planMsg = wst.messages.find(m => m.hasPlan && m.plan && m.plan.steps[2].status === 'active');
+      if (planMsg && planMsg.plan) {
+        planMsg.plan.steps[2].status = 'done';
+        planMsg.plan.steps[3].status = 'active';
+        renderView();
+      }
+      
+      // Complete run and deliver output card
+      setTimeout(() => {
+        const planMsgComplete = wst.messages.find(m => m.hasPlan && m.plan && m.plan.steps[3].status === 'active');
+        if (planMsgComplete && planMsgComplete.plan) {
+          planMsgComplete.plan.steps[3].status = 'done';
+        }
+        
+        wst.status = 'complete';
+        wst.runs[0].status = 'done';
+        
+        // Update right rail stats
+        wst.stats.runs++;
+        
+        // Deliver output card
+        wst.messages.push({
+          id: 'sim_out_msg_' + Date.now(),
+          sender: 'Finance reviewer',
+          senderType: 'agent',
+          time: 'just now',
+          content: 'Audit manual check completed successfully. All ledger tables parsed and fully verified.',
+          hasOutputCard: true,
+          outputCard: {
+            title: 'Q1 Vendor anomalies report.pdf',
+            summary: '847 entries reviewed · 0 anomalies · 2 vendors flagged'
+          }
+        });
+        
+        showToast('Manual run check completed successfully!');
+        renderView();
+      }, 1800);
+      
+    }, 1800);
+  } else {
+    // Rejected
+    wst.status = 'paused';
+    wst.runs[0].status = 'failed';
+    showToast('Execution check declined.');
+    renderView();
+  }
+}
+
+// Add skill to rail section
+function addWorkstreamSkill(wstId) {
+  const wst = state.workstreams.find(w => w.id === wstId);
+  if (!wst) return;
+  
+  const skill = prompt("Enter a skill name to attach to this workstream:", "Email Dispatcher");
+  if (skill && skill.trim()) {
+    wst.skills.push(skill.trim());
+    renderView();
+    showToast(`Skill "${skill}" attached successfully!`);
+  }
 }
 
 function saveWorkstreamConfig(wstId) {
@@ -5097,6 +6011,7 @@ function saveWorkstreamConfig(wstId) {
     renderView();
   }
 }
+
 
 function renderReviewsScreen() {
   const activeWorkspace = state.workspaces.find(ws => ws.id === state.activeWorkspaceId) || state.workspaces[0];
@@ -5585,28 +6500,6 @@ function renderWorkspaceKnowledgeScreen() {
         </div>
 
         <div class="kb-search-right" style="display:flex; align-items:center; gap:12px;">
-          <!-- Neutral Scope filter selector (Shifted here to be in the same horizontal line!) -->
-          <div style="position:relative; z-index: 200;">
-            <button class="kb-scope-selector-btn" onclick="toggleKBScopeDropdown(event)">
-              <span>${getScopeLabel(state.kbFilterScope)}</span>
-              <i class="ti ti-chevron-down" style="font-size:11px; transform: ${state.kbScopeDropdownOpen ? 'rotate(180deg)' : 'rotate(0)'}; transition: transform 0.15s;"></i>
-            </button>
-            
-            ${state.kbScopeDropdownOpen ? `
-              <div class="kb-scope-dropdown-menu" style="right: 0; left: auto; top: 100%; margin-top: 4px; z-index: 1000;">
-                <button class="kb-scope-dropdown-item ${state.kbFilterScope === 'all' ? 'active' : ''}" onclick="setKBScopeFilter(event, 'all')">
-                  <span>All Knowledge Base</span>
-                </button>
-                <button class="kb-scope-dropdown-item ${state.kbFilterScope === 'mine' ? 'active' : ''}" onclick="setKBScopeFilter(event, 'mine')">
-                  <span>Your Knowledge Base</span>
-                </button>
-                <button class="kb-scope-dropdown-item ${state.kbFilterScope === 'others' ? 'active' : ''}" onclick="setKBScopeFilter(event, 'others')">
-                  <span>Created By Others</span>
-                </button>
-              </div>
-            ` : ''}
-          </div>
-
           <div class="kb-view-toggle">
             <button class="kb-toggle-btn ${state.knowledgeBaseView === 'grid' ? 'active' : ''}" onclick="setKBView('grid')" title="Grid View">
               <i class="ti ti-layout-grid"></i>
@@ -6553,4 +7446,4 @@ function saveWorkspaceSettings() {
   }
 }
 
-
+
